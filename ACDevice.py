@@ -9,6 +9,8 @@ PORT = 1883
 REGISTER_DEVICE = "device/register"
 REGISTER_STATUS = "register/status/"
 DEVICE_STATUS = "device/status/"
+DEVICE = "device/"
+DEVICE_REGISTER_STATUS_MSG = "register/status/msg"
 
 
 class AC_Device():
@@ -47,45 +49,90 @@ class AC_Device():
         self.client.subscribe(DEVICE_STATUS + str(self._device_id))
         self.client.subscribe(DEVICE_STATUS + str(self._device_type))
         self.client.subscribe(DEVICE_STATUS + str(self._room_type))
-        self.client.subscribe(DEVICE_STATUS)
+        self.client.subscribe(DEVICE_STATUS+"all")
+        self.client.subscribe(DEVICE + str(self._device_id))
+        self.client.subscribe(DEVICE+str(self._device_type))
+        self.client.subscribe(
+            DEVICE+str(self._room_type)+"/ac/" + str(self._device_id))
+        self.client.subscribe(DEVICE)
     # method to process the recieved messages and publish them on relevant topics
     # this method can also be used to take the action based on received commands
 
     def _on_message(self, client, userdata, msg):
         if msg.topic == REGISTER_STATUS + str(self._device_id):
-            print(
-                f"AC-DEVICE Registered! - Registration status is available for '{self._device_id}' : {msg.payload.decode()}")
+            payload = {'msg': "AC_DEVICE", 'device_id': self._device_id,
+                       'flag': True}
+            self.client.publish(
+                DEVICE_REGISTER_STATUS_MSG, json.dumps(payload))
+
         if msg.topic == DEVICE_STATUS + str(self._device_id):
             self._get_status()
         if msg.topic == DEVICE_STATUS + str(self._device_type):
             self._get_status()
         if msg.topic == DEVICE_STATUS + str(self._room_type):
             self._get_status()
-        if msg.topic == DEVICE_STATUS:
+        if msg.topic == DEVICE_STATUS + "all":
             self._get_status()
+
+        if msg.topic == DEVICE + str(self._device_id):
+            payload = msg.payload.decode()
+            status = json.loads(payload)
+            self._set_status(status)
+
+        if msg.topic == DEVICE + str(self._device_type):
+            payload = msg.payload.decode()
+            status = json.loads(payload)
+            self._set_status(status)
+
+        if msg.topic == DEVICE + str(self._room_type)+"/ac/" + str(self._device_id):
+            payload = msg.payload.decode()
+            status = json.loads(payload)
+            self._set_status(status)
+
+        if msg.topic == DEVICE:
+            payload = msg.payload.decode()
+            status = json.loads(payload)
+            self._set_status(status)
 
     def _get_status(self):
         device = {}
         device['device_id'] = self._device_id
         device['switch_status'] = self._get_switch_status()
         device['temperature'] = self._get_temperature()
-        print(
-            f"Here is the current device-status for {device['device_id']} : {device}\n")
+        self.client.publish(
+            DEVICE_STATUS, json.dumps(device))
+
+    def _set_status(self, status):
+        if (status.get('switch_status') is not None):
+            self._set_switch_status(status['switch_status'])
+        if (status.get('temperature') is None):
+            self._set_temperature(self._temperature)
+        elif (status.get('temperature') is not None and status['temperature'] >= self._MIN_TEMP and status['temperature'] <= self._MAX_TEMP):
+            self._set_temperature(status['temperature'])
+        else:
+            print("Temperature Change FAILED. Invalid temperature value received")
+            pass
+        self._get_status()
 
     def _get_switch_status(self):
         return self._switch_status
     # Setting the the switch of devices
 
-    def _set_switch_status(self, switch_state):
-        return self._switch_status
+    def _set_switch_status(self, switch_state=None):
+        if (switch_state is None):
+            switch_state = self._switch_status
+        if (self._switch_status != switch_state):
+            self._switch_status = switch_state
 
     # Getting the temperature for the devices
+
     def _get_temperature(self):
         return self._temperature
 
     # Setting up the temperature of the devices
     def _set_temperature(self, temperature):
-        pass
+        if (self._temperature != temperature):
+            self._temperature = temperature
 
     def _on_disconnect(self):
         pass

@@ -1,3 +1,5 @@
+
+"""
 Smart Home Simulation started.
 
 ******************* REGSITRATION OF THE DEVICES THROUGH SERVER *******************
@@ -375,3 +377,4 @@ Here is the current device-status for ac_3: {'device_id': 'ac_3', 'switch_state'
 Command ID 26 is executed.
 
 Smart Home Simulation stopped.
+"""
